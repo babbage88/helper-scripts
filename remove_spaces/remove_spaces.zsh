@@ -1,4 +1,4 @@
-#compdef remove_spaces
+#compdef remove-spaces
 
 _remove_spaces() {
   _arguments -s -S \
