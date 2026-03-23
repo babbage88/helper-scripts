@@ -1,6 +1,6 @@
-#compdef rename_spaces_in_filenames
+#compdef remove_spaces
 
-_rename_spaces_in_filenames() {
+_remove_spaces() {
   _arguments -s -S \
     '(-p --path)'{-p,--path}'[Directory to search]:directory:_files -/' \
     '(-h --help)'{-h,--help}'[Show help]'
@@ -11,4 +11,4 @@ if ! whence -w compdef >/dev/null 2>&1; then
   compinit -i >/dev/null 2>&1
 fi
 
-compdef _rename_spaces_in_filenames rename_spaces_in_filenames
+compdef _remove_spaces remove-spaces
