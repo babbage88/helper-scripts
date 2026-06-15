@@ -311,8 +311,8 @@ add_route() {
 
   case "$PLATFORM" in
   macos)
-    sudo route add -net "$network" -netmask "$netmask" "$gateway" 2>/dev/null ||
-      sudo route change -net "$network" -netmask "$netmask" "$gateway"
+    sudo route add -net "$network" -netmask "$netmask" "$gateway" >/dev/null 2>&1 ||
+      sudo route change -net "$network" -netmask "$netmask" "$gateway" >/dev/null 2>&1
     ;;
   linux)
     sudo ip route replace "$network/$prefix" via "$gateway"
