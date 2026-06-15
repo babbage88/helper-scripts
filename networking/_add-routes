@@ -1,0 +1,3 @@
+#compdef add-routes.sh add-routes
+
+source "${${functions_source[$0]}:A:h}/add-routes.zsh"
