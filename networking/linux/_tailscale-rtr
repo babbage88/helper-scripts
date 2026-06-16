@@ -1,0 +1,3 @@
+#compdef tailscale_rtr.sh tailscale-rtr tailscale_local_main_rules.sh tailscale-local-main-rules
+
+source "${${functions_source[$0]}:A:h}/tailscale-rtr.zsh"
