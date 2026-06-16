@@ -61,8 +61,10 @@ else
     fi
 fi
 unset __conda_setup
-
 # <<< conda initialize <<<
+
+# setting custom homebrew bin path for multiuser macos env
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 source <(helm completion zsh)
 source <(kubectl completion zsh)
 source <(dnsctl completion zsh)
@@ -70,15 +72,16 @@ source <(tailscale completion zsh)
 source <(infractl completion zsh)
 #source "$HOME/.scripts/remove_spaces/remove_spaces.sh"
 #alias remove-spaces=remove_spaces
+if type brew &>/dev/null; then
+  FPATH="$(brew --prefix)/share/zsh/site-functions:${FPATH}"
+fi
 autoload -Uz compinit && compinit -u
 
-# setting custom homebrew bin path for multiuser macos env
-export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 
 # eza setup 
 # enable syntax highlightin and ls colors via eza
 source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-alias ls="eza --icons --color=always"
+alias ls="eza --icons --color=always "
 # end eza setup
 
 
