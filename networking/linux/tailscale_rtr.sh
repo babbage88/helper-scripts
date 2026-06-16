@@ -2,12 +2,15 @@
 
 set -euo pipefail
 
-SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_PATH="$SCRIPT_DIR/$(basename "${BASH_SOURCE[0]}")"
 export WG_INTERFACE="${WG_INTERFACE:-wg0}"
 ADVERTISED_ROUTES="${ADVERTISED_ROUTES:-10.0.0.0/23,10.2.0.0/16}"
 EXTRA_TS_ARGS="${EXTRA_TS_ARGS:---snat-subnet-routes=false}"
-# Leave this off by default for HA subnet routers that advertise the same LANs.
-TS_ACCEPT_ROUTES="${TS_ACCEPT_ROUTES:-false}"
+# Default to accepting tailnet routes so this router can reach other subnet routers
+# such as the travel router advertising 192.168.8.0/24.
+TS_ACCEPT_ROUTES="${TS_ACCEPT_ROUTES:-true}"
+LOCAL_MAIN_RULES_SCRIPT="${LOCAL_MAIN_RULES_SCRIPT:-$SCRIPT_DIR/tailscale_local_main_rules.sh}"
 SYSTEMD_UNIT_NAME="${SYSTEMD_UNIT_NAME:-tailscale-subnet-router.service}"
 SYSTEMD_UNIT_PATH="${SYSTEMD_UNIT_PATH:-/etc/systemd/system/$SYSTEMD_UNIT_NAME}"
 SYSTEMD_ENV_PATH="${SYSTEMD_ENV_PATH:-/etc/default/tailscale-subnet-router}"
@@ -27,7 +30,8 @@ Environment overrides:
   WG_INTERFACE=wg0
   ADVERTISED_ROUTES=10.0.0.0/23,10.2.0.0/16
   EXTRA_TS_ARGS="--snat-subnet-routes=false"
-  TS_ACCEPT_ROUTES=false
+  TS_ACCEPT_ROUTES=true
+  LOCAL_MAIN_RULES_SCRIPT=/path/to/tailscale_local_main_rules.sh
   SYSTEMD_UNIT_NAME=tailscale-subnet-router.service
 EOF
 }
@@ -70,7 +74,37 @@ write_systemd_environment_file() {
     printf 'ADVERTISED_ROUTES=%s\n' "$ADVERTISED_ROUTES"
     printf 'EXTRA_TS_ARGS=%s\n' "$EXTRA_TS_ARGS"
     printf 'TS_ACCEPT_ROUTES=%s\n' "$TS_ACCEPT_ROUTES"
+    printf 'LOCAL_MAIN_RULES_SCRIPT=%s\n' "$LOCAL_MAIN_RULES_SCRIPT"
   } | sudo tee "$SYSTEMD_ENV_PATH" >/dev/null
+}
+
+maybe_apply_local_main_rules() {
+  if [ "$TS_ACCEPT_ROUTES" != "true" ]; then
+    return 0
+  fi
+
+  if [ ! -x "$LOCAL_MAIN_RULES_SCRIPT" ]; then
+    echo "Warning: TS_ACCEPT_ROUTES=true but local rules helper is not executable: $LOCAL_MAIN_RULES_SCRIPT" >&2
+    return 0
+  fi
+
+  echo "Applying local main-table routing rules before tailscale up"
+  "$LOCAL_MAIN_RULES_SCRIPT" apply
+}
+
+maybe_install_local_main_rules_persistence() {
+  if [ "$TS_ACCEPT_ROUTES" != "true" ]; then
+    return 0
+  fi
+
+  if [ ! -x "$LOCAL_MAIN_RULES_SCRIPT" ]; then
+    echo "Warning: TS_ACCEPT_ROUTES=true but local rules helper is not executable: $LOCAL_MAIN_RULES_SCRIPT" >&2
+    echo "Install it separately so accepted tailnet routes do not override directly-connected LAN prefixes." >&2
+    return 0
+  fi
+
+  echo "Installing persistence for local main-table routing rules"
+  "$LOCAL_MAIN_RULES_SCRIPT" install-persistence
 }
 
 print_systemd_unit() {
@@ -94,6 +128,7 @@ EOF
 install_systemd_service() {
   write_systemd_environment_file
   print_systemd_unit | sudo tee "$SYSTEMD_UNIT_PATH" >/dev/null
+  maybe_install_local_main_rules_persistence
   sudo systemctl daemon-reload
   sudo systemctl enable --now "$SYSTEMD_UNIT_NAME"
   echo "Installed and started $SYSTEMD_UNIT_NAME"
@@ -106,6 +141,7 @@ start_wg0_and_ts_exitnode() {
 }
 
 start_ts_subnet_router() {
+  maybe_apply_local_main_rules
   build_tailscale_up_args
   sudo tailscale up "${TS_UP_ARGS[@]}"
 }

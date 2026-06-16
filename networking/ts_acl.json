@@ -1,0 +1,61 @@
+{
+	"groups": {"group:dev": ["babbage88@github"]},
+
+	"tagOwners": {
+		"tag:k8s-operator": [],
+		"tag:k8s":          ["tag:k8s-operator"],
+	},
+
+	"acls": [],
+
+	"grants": [
+		{
+			"src": ["group:dev"],
+
+			"dst": [
+				"192.168.8.0/24",
+				"10.0.0.0/23",
+				"192.168.1.0/24",
+				"*",
+			],
+
+			"ip": ["*"],
+		},
+		{
+			"src": ["10.0.0.0/23"],
+			"dst": ["192.168.8.0/24", "192.168.1.0/24"],
+			"ip":  ["*"],
+		},
+		{
+			"src": ["192.168.8.0/24"],
+			"dst": ["*"],
+			"ip":  ["*"],
+		},
+		{
+			"src": ["ipset:lan-subnets"],
+			"dst": ["*"],
+			"ip":  ["*"],
+		},
+		{
+			"src": ["10.0.0.0/23", "10.2.0.0/16"],
+			"dst": ["100.64.0.0/10"],
+			"ip":  ["*"],
+		},
+	],
+
+	"ipsets": {
+		// routed subnets
+		"ipset:lan-subnets": ["add 10.0.0.0/23", "add 192.168.8.0/24", "add 192.168.1.0/24"],
+	},
+
+	"nodeAttrs": [
+		{
+			// Funnel policy, which lets tailnet members control Funnel
+			// for their own devices.
+			// Learn more at https://tailscale.com/kb/1223/tailscale-funnel/
+			"target": ["autogroup:member"],
+
+			"attr": ["funnel"],
+		},
+	],
+}

@@ -5,6 +5,9 @@ set -euo pipefail
 SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 RULE_PRIORITY="${RULE_PRIORITY:-2500}"
 RULE_TABLE="${RULE_TABLE:-main}"
+TAILNET_RULE_PRIORITY="${TAILNET_RULE_PRIORITY:-2600}"
+TAILNET_RULE_TABLE="${TAILNET_RULE_TABLE:-52}"
+TAILNET_CIDR="${TAILNET_CIDR:-100.64.0.0/10}"
 LOCAL_SUBNETS=(
   "${LOCAL_SUBNET_1:-10.2.0.0/16}"
   "${LOCAL_SUBNET_2:-10.0.0.0/23}"
@@ -20,10 +23,14 @@ Usage: $0 [apply|remove|detect-backend|install-persistence|remove-persistence]
 
 Applies or removes ip rules that force traffic destined for directly-connected
 LAN prefixes to use the main routing table instead of Tailscale's policy table.
+When no action is provided, install-persistence is used by default.
 
 Environment overrides:
   RULE_PRIORITY=2500
   RULE_TABLE=main
+  TAILNET_RULE_PRIORITY=2600
+  TAILNET_RULE_TABLE=52
+  TAILNET_CIDR=100.64.0.0/10
   LOCAL_SUBNET_1=10.2.0.0/16
   LOCAL_SUBNET_2=10.0.0.0/23
   NM_CONNECTIONS=conn1,conn2
@@ -58,6 +65,10 @@ rule_exists() {
   ip rule show | grep -Fq "to $subnet lookup $RULE_TABLE"
 }
 
+tailnet_rule_exists() {
+  ip rule show | grep -Fq "to $TAILNET_CIDR lookup $TAILNET_RULE_TABLE"
+}
+
 apply_rule() {
   local subnet="$1"
 
@@ -76,6 +87,23 @@ remove_rule() {
   while rule_exists "$subnet"; do
     echo "Removing rule for $subnet via table $RULE_TABLE with priority $RULE_PRIORITY"
     sudo ip rule delete to "$subnet" priority "$RULE_PRIORITY" lookup "$RULE_TABLE"
+  done
+}
+
+apply_tailnet_rule() {
+  if tailnet_rule_exists; then
+    echo "Tailnet forwarding rule already present for $TAILNET_CIDR"
+    return 0
+  fi
+
+  echo "Adding tailnet forwarding rule for $TAILNET_CIDR via table $TAILNET_RULE_TABLE with priority $TAILNET_RULE_PRIORITY"
+  sudo ip rule add to "$TAILNET_CIDR" priority "$TAILNET_RULE_PRIORITY" lookup "$TAILNET_RULE_TABLE"
+}
+
+remove_tailnet_rule() {
+  while tailnet_rule_exists; do
+    echo "Removing tailnet forwarding rule for $TAILNET_CIDR via table $TAILNET_RULE_TABLE with priority $TAILNET_RULE_PRIORITY"
+    sudo ip rule delete to "$TAILNET_CIDR" priority "$TAILNET_RULE_PRIORITY" lookup "$TAILNET_RULE_TABLE"
   done
 }
 
@@ -123,6 +151,10 @@ nm_rule_spec() {
   printf 'priority %s to %s table %s' "$RULE_PRIORITY" "$subnet" "$table_number"
 }
 
+nm_tailnet_rule_spec() {
+  printf 'priority %s to %s table %s' "$TAILNET_RULE_PRIORITY" "$TAILNET_CIDR" "$TAILNET_RULE_TABLE"
+}
+
 nm_rule_exists() {
   local connection="$1"
   local subnet="$2"
@@ -137,8 +169,10 @@ install_nm_persistence() {
   local connection
   local subnet
   local spec
+  local tailnet_spec
 
   mapfile -t connections < <(require_single_nm_connection_if_autodetected)
+  tailnet_spec="$(nm_tailnet_rule_spec)"
 
   for connection in "${connections[@]}"; do
     for subnet in "${LOCAL_SUBNETS[@]}"; do
@@ -151,6 +185,14 @@ install_nm_persistence() {
       echo "Adding NetworkManager rule to $connection: $spec"
       sudo nmcli connection modify "$connection" +ipv4.routing-rules "$spec"
     done
+
+    if nmcli -g ipv4.routing-rules connection show "$connection" | tr ',' '\n' | grep -Fqx "$tailnet_spec"; then
+      echo "NetworkManager profile $connection already has rule: $tailnet_spec"
+      continue
+    fi
+
+    echo "Adding NetworkManager rule to $connection: $tailnet_spec"
+    sudo nmcli connection modify "$connection" +ipv4.routing-rules "$tailnet_spec"
   done
 
   cat <<EOF
@@ -165,8 +207,10 @@ remove_nm_persistence() {
   local connection
   local subnet
   local spec
+  local tailnet_spec
 
   mapfile -t connections < <(require_single_nm_connection_if_autodetected)
+  tailnet_spec="$(nm_tailnet_rule_spec)"
 
   for connection in "${connections[@]}"; do
     for subnet in "${LOCAL_SUBNETS[@]}"; do
@@ -179,6 +223,14 @@ remove_nm_persistence() {
       echo "Removing NetworkManager rule from $connection: $spec"
       sudo nmcli connection modify "$connection" -ipv4.routing-rules "$spec"
     done
+
+    if ! nmcli -g ipv4.routing-rules connection show "$connection" | tr ',' '\n' | grep -Fqx "$tailnet_spec"; then
+      echo "NetworkManager profile $connection does not contain rule: $tailnet_spec"
+      continue
+    fi
+
+    echo "Removing NetworkManager rule from $connection: $tailnet_spec"
+    sudo nmcli connection modify "$connection" -ipv4.routing-rules "$tailnet_spec"
   done
 }
 
@@ -186,6 +238,9 @@ write_systemd_environment_file() {
   {
     printf 'RULE_PRIORITY=%s\n' "$RULE_PRIORITY"
     printf 'RULE_TABLE=%s\n' "$RULE_TABLE"
+    printf 'TAILNET_RULE_PRIORITY=%s\n' "$TAILNET_RULE_PRIORITY"
+    printf 'TAILNET_RULE_TABLE=%s\n' "$TAILNET_RULE_TABLE"
+    printf 'TAILNET_CIDR=%s\n' "$TAILNET_CIDR"
     local index=1
     local subnet
 
@@ -244,18 +299,20 @@ detect_backend() {
 }
 
 main() {
-  local action="${1:-apply}"
+  local action="${1:-install-persistence}"
 
   case "$action" in
   apply)
     for subnet in "${LOCAL_SUBNETS[@]}"; do
       apply_rule "$subnet"
     done
+    apply_tailnet_rule
     ;;
   remove)
     for subnet in "${LOCAL_SUBNETS[@]}"; do
       remove_rule "$subnet"
     done
+    remove_tailnet_rule
     ;;
   detect-backend)
     detect_backend
