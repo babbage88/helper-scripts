@@ -1,0 +1,16 @@
+# Example unit file.
+# The install-persistence action in tailscale_local_main_rules.sh writes a
+# host-specific unit with the real script path for the target machine.
+[Unit]
+Description=Prefer main table for local LAN destinations on Tailscale nodes
+After=network-online.target tailscaled.service
+Wants=network-online.target tailscaled.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/default/tailscale-local-main-rules
+ExecStart=/bin/bash /usr/local/sbin/tailscale_local_main_rules.sh apply
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

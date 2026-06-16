@@ -1,0 +1,35 @@
+- /American.Crime.Story/**
+- /American.Revolution/**
+- /American.Dad/**
+- /Better Call Saul/**
+- /Better.Call.Saul/**
+- /Childs.Play/**
+- /Dead/**
+- /Deadpool*/**
+- /Dexter*/**
+- /Falling.Skies/**
+- /Landman*/**
+- /Star.Wars/**
+- /Justified/**
+- /Kyle.XY/**
+- /Kyle*/**
+- /Friends/**
+- /Friends*/**
+- /For_All_Mankind/**
+- /Futurama/**
+- /Game.Of.Thrones/**
+- /Masters.of.the.Air/**
+- /Shrinking/**
+- /Sons.of.Anarchy/**
+- /Star.Trek.The.Next.Generation/**
+- /Stick/**
+- /Survivor/**
+- /The.Office*/**
+- /The.Ones.Who.Live/**
+- /The.Penguin*/**
+- /True Blood*/**
+- /True.Blood*/**
+- /Vice.Principals/**
+- /Yellowjackets*/**
+- /Yellowstone/**
+- /X-Files*/**
