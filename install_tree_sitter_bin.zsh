@@ -8,6 +8,7 @@ _install_tree_sitter_bin() {
     '(-d --download-dir)'{-d,--download-dir}'[Directory used for the downloaded binary]:directory:_files -/' \
     '(-i --install-dir)'{-i,--install-dir}'[Directory where the binary is installed]:directory:_files -/' \
     '(-u --user-install)'{-u,--user-install}'[Install to $HOME/.local/bin for the current user]' \
+    '(-D --download-only)'{-D,--download-only}'[Only download and extract the binary; do not install it]' \
     '(-b --bin-name)'{-b,--bin-name}'[Installed binary name]:binary name:' \
     '(-f --force)'{-f,--force}'[Re-download even if the archive already exists]' \
     '(-h --help)'{-h,--help}'[Show help message]'

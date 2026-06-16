@@ -28,7 +28,7 @@ _install_tree_sitter_bin_complete() {
   esac
 
   if [[ "$cur" == -* ]]; then
-    COMPREPLY=($(compgen -W "-v --version -a --arch -o --os -d --download-dir -i --install-dir -u --user-install -b --bin-name -f --force -h --help" -- "$cur"))
+    COMPREPLY=($(compgen -W "-v --version -a --arch -o --os -d --download-dir -i --install-dir -u --user-install -D --download-only -b --bin-name -f --force -h --help" -- "$cur"))
     return 0
   fi
 

@@ -12,6 +12,7 @@ ARCH=""
 OS_ARCH=""
 FORCE_DOWNLOAD=false
 USER_INSTALL=false
+DOWNLOAD_ONLY=false
 
 COLORS_ENABLED=false
 
@@ -26,6 +27,7 @@ Options:
   -d, --download-dir DIR   Directory used for the downloaded binary
   -i, --install-dir DIR    Directory where the binary is installed
   -u, --user-install       Install to \$HOME/.local/bin for the current user
+  -D, --download-only      Only download and extract the binary; do not install it
   -b, --bin-name NAME      Installed binary name
   -f, --force              Re-download even if the archive already exists
   -h, --help               Show this help message
@@ -34,6 +36,7 @@ Examples:
   $SCRIPT_NAME
   $SCRIPT_NAME --version v0.25.10
   $SCRIPT_NAME --user-install
+  $SCRIPT_NAME --download-only
   $SCRIPT_NAME -v v0.25.10 -d /tmp/tree-sitter-downloads
   $SCRIPT_NAME -v v0.25.10 -o macos -a arm64 -i "\$HOME/.local/bin"
 EOF
@@ -316,6 +319,9 @@ parse_args() {
       USER_INSTALL=true
       INSTALL_DIR="${HOME}/.local/bin"
       ;;
+    -D|--download-only)
+      DOWNLOAD_ONLY=true
+      ;;
     -b|--bin-name)
       [ "$#" -ge 2 ] || {
         log_error "$1 requires a binary name."
@@ -350,7 +356,9 @@ main() {
 
   require_command wget
   require_command gunzip
-  require_command install
+  if [ "$DOWNLOAD_ONLY" != true ]; then
+    require_command install
+  fi
 
   if [ "$USER_INSTALL" = true ]; then
     log_info "User install enabled; target directory is $(color_text value "$INSTALL_DIR")"
@@ -358,6 +366,12 @@ main() {
 
   log_info "Preparing Tree-sitter $(color_text value "$TREE_SITTER_VERSION") for $(color_text value "$OS_ARCH/$ARCH")"
   download_tree_sitter_bin
+  if [ "$DOWNLOAD_ONLY" = true ]; then
+    log_success "Downloaded and extracted $(color_text value "$DOWNLOAD_DIR/$TS_FULL_NAME")"
+    log_info "Skipping install because $(color_text value "--download-only") was used"
+    exit 0
+  fi
+
   install_tree_sitter_bin
 }
 
