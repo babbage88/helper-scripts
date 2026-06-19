@@ -362,10 +362,34 @@ install_nvim_from_source() {
   log_success "Neovim installed from source"
 }
 
+ensure_fontconfig_installed() {
+  if command -v fc-cache >/dev/null 2>&1; then
+    return
+  fi
+
+  ensure_package_manager
+  log_warning "$(color_text value 'fc-cache') was not found; attempting to install $(color_text value 'fontconfig')"
+
+  case "$PACKAGE_MANAGER" in
+  apt)
+    sudo apt-get install -y fontconfig
+    ;;
+  dnf)
+    sudo dnf install -y fontconfig
+    ;;
+  yum)
+    sudo yum install -y fontconfig
+    ;;
+  esac
+
+  require_command fc-cache
+  log_success "$(color_text value 'fontconfig') installed"
+}
+
 install_nerd_fonts() {
   require_command wget
   require_command unzip
-  require_command fc-cache
+  ensure_fontconfig_installed
 
   current_dir="$(pwd)"
   mkdir -p "$HOME/.local/share/fonts"
