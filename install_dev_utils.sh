@@ -234,7 +234,7 @@ install_apt_reqs() {
   case "$PACKAGE_MANAGER" in
   apt)
     log_info "Installing base packages with $(color_text value 'apt-get')"
-    sudo apt-get install -y software-properties-common wget tar curl python3-venv git ninja-build gettext libtool libtool-bin autoconf automake cmake g++ gcc make pkg-config unzip patch doxygen
+    sudo apt-get install -y wget tar curl python3-venv git ninja-build gettext libtool libtool-bin autoconf automake cmake g++ gcc make pkg-config unzip patch doxygen
     ;;
   dnf)
     try_enable_rhel_builder_repos
