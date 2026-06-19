@@ -8,6 +8,7 @@ BACKUP_SUFFIX=".bak"
 TOP_LINE='zmodload zsh/zprof'
 BOTTOM_LINE='zprof'
 COLORS_ENABLED=false
+BACKUP_PATH=""
 
 usage() {
   cat <<EOF
@@ -133,7 +134,19 @@ ensure_target_exists() {
 }
 
 backup_target() {
-  cp "$TARGET_FILE" "${TARGET_FILE}${BACKUP_SUFFIX}"
+  local default_backup_path timestamped_backup_path
+
+  default_backup_path="${TARGET_FILE}${BACKUP_SUFFIX}"
+
+  if [ ! -e "$default_backup_path" ] || [ -w "$default_backup_path" ]; then
+    BACKUP_PATH="$default_backup_path"
+  else
+    timestamped_backup_path="${TARGET_FILE}.$(date '+%Y-%m-%dT%H-%M-%S').bak"
+    BACKUP_PATH="$timestamped_backup_path"
+    log_warning "Default backup path $(color_text value "$default_backup_path") is not writable; using $(color_text value "$BACKUP_PATH") instead"
+  fi
+
+  cp "$TARGET_FILE" "$BACKUP_PATH"
 }
 
 print_status() {
@@ -191,13 +204,13 @@ main() {
     backup_target
     write_on_file
     log_success "Enabled zprof profiling in $(color_text value "$TARGET_FILE")"
-    log_info "Backup written to $(color_text value "${TARGET_FILE}${BACKUP_SUFFIX}")"
+    log_info "Backup written to $(color_text value "$BACKUP_PATH")"
     ;;
   off)
     backup_target
     write_off_file
     log_success "Disabled zprof profiling in $(color_text value "$TARGET_FILE")"
-    log_info "Backup written to $(color_text value "${TARGET_FILE}${BACKUP_SUFFIX}")"
+    log_info "Backup written to $(color_text value "$BACKUP_PATH")"
     ;;
   esac
 }
