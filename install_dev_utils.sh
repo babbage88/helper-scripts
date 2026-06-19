@@ -234,17 +234,17 @@ install_apt_reqs() {
   case "$PACKAGE_MANAGER" in
   apt)
     log_info "Installing base packages with $(color_text value 'apt-get')"
-    sudo apt-get install -y wget tar curl python3-venv git ninja-build gettext libtool libtool-bin autoconf automake cmake g++ gcc make pkg-config unzip patch doxygen
+    sudo apt-get install -y wget tar curl python3-venv git ninja-build gettext libtool libtool-bin autoconf automake cmake g++ gcc make pkg-config unzip patch doxygen fontconfig
     ;;
   dnf)
     try_enable_rhel_builder_repos
     log_info "Installing base packages with $(color_text value 'dnf')"
-    sudo dnf install -y dnf-plugins-core wget tar curl python3 python3-pip git ninja-build gettext libtool autoconf automake cmake gcc gcc-c++ make pkgconf-pkg-config unzip patch doxygen
+    sudo dnf install -y dnf-plugins-core wget tar curl python3 python3-pip git ninja-build gettext libtool autoconf automake cmake gcc gcc-c++ make pkgconf-pkg-config unzip patch doxygen fontconfig
     ;;
   yum)
     try_enable_rhel_builder_repos
     log_info "Installing base packages with $(color_text value 'yum')"
-    sudo yum install -y yum-utils wget tar curl python3 python3-pip git ninja-build gettext libtool autoconf automake cmake gcc gcc-c++ make pkgconfig unzip patch doxygen
+    sudo yum install -y yum-utils wget tar curl python3 python3-pip git ninja-build gettext libtool autoconf automake cmake gcc gcc-c++ make pkgconfig unzip patch doxygen fontconfig
     ;;
   esac
 
