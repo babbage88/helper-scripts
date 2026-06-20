@@ -16,7 +16,6 @@ _tailscale_rtr_command_words() {
   *)
     printf '%s\n' \
       "start-subnet-router" \
-      "start-exit-node" \
       "install-systemd-service" \
       "remove-systemd-service" \
       "print-systemd-unit" \
@@ -31,18 +30,39 @@ _tailscale_rtr_command_words() {
   esac
 }
 
+_tailscale_rtr_option_words() {
+  printf '%s\n' \
+    "--advertise-exit-node" \
+    "--enable-wireguard" \
+    "--help" \
+    "-e" \
+    "-w" \
+    "-h"
+}
+
 _tailscale_rtr_complete() {
   local cur
+  local prev
   local -a commands
+  local -a options
 
   cur="${COMP_WORDS[COMP_CWORD]}"
+  prev="${COMP_WORDS[COMP_CWORD-1]:-}"
   COMPREPLY=()
 
-  if [ "$COMP_CWORD" -ne 1 ]; then
+  mapfile -t commands < <(_tailscale_rtr_command_words "${COMP_WORDS[0]}")
+  mapfile -t options < <(_tailscale_rtr_option_words)
+
+  if [[ "$cur" == -* ]]; then
+    COMPREPLY=($(compgen -W "${options[*]}" -- "$cur"))
     return 0
   fi
 
-  mapfile -t commands < <(_tailscale_rtr_command_words "${COMP_WORDS[0]}")
+  if [ "$COMP_CWORD" -eq 1 ]; then
+    COMPREPLY=($(compgen -W "${commands[*]} ${options[*]}" -- "$cur"))
+    return 0
+  fi
+
   COMPREPLY=($(compgen -W "${commands[*]}" -- "$cur"))
 }
 

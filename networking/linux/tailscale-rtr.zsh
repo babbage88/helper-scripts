@@ -19,7 +19,6 @@ _tailscale_rtr_commands() {
     *)
       print -r -- \
         'start-subnet-router:Start Tailscale as a subnet router' \
-        'start-exit-node:Start wg0 and Tailscale as subnet router plus exit node' \
         'install-systemd-service:Install subnet router service and local rule persistence' \
         'remove-systemd-service:Remove subnet router service and local rule persistence' \
         'print-systemd-unit:Print the generated subnet router unit' \
@@ -34,10 +33,20 @@ _tailscale_rtr_commands() {
   esac
 }
 
+_tailscale_rtr_options() {
+  print -r -- \
+    '(-e --advertise-exit-node)'{-e,--advertise-exit-node}'[Append --advertise-exit-node to tailscale up]' \
+    '(-w --enable-wireguard)'{-w,--enable-wireguard}'[Bring up the WireGuard interface before tailscale up]' \
+    '(-h --help)'{-h,--help}'[Show help text]'
+}
+
 _tailscale_rtr() {
   local -a commands
+  local -a options
 
+  options=(${(@f)$(_tailscale_rtr_options)})
   _arguments -s -S \
+    "${options[@]}" \
     '1:command:->command'
 
   case "$state" in
