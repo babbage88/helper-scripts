@@ -26,16 +26,17 @@ LOCAL_RULES_UNIT_NAME="${LOCAL_RULES_UNIT_NAME:-tailscale-local-main-rules.servi
 LOCAL_RULES_UNIT_PATH="${LOCAL_RULES_UNIT_PATH:-/etc/systemd/system/$LOCAL_RULES_UNIT_NAME}"
 LOCAL_RULES_ENV_PATH="${LOCAL_RULES_ENV_PATH:-/etc/default/tailscale-local-main-rules}"
 NM_CONNECTIONS="${NM_CONNECTIONS:-}"
+ENABLE_EXIT_NODE_ADVERTISEMENT="${ENABLE_EXIT_NODE_ADVERTISEMENT:-false}"
+ENABLE_WIREGUARD_INTERFACE="${ENABLE_WIREGUARD_INTERFACE:-false}"
 
 COLORS_ENABLED=false
 
 usage() {
   cat <<EOF
-Usage: $0 [COMMAND]
+Usage: $0 [COMMAND] [OPTIONS]
 
 Commands:
   start-subnet-router            Start Tailscale as a subnet router
-  start-exit-node                Start wg0 and Tailscale as subnet router + exit node
   install-systemd-service        Install subnet router service and local rule persistence
   remove-systemd-service         Remove subnet router service and local rule persistence
   print-systemd-unit             Print the generated subnet router unit
@@ -47,6 +48,11 @@ Commands:
   print-local-rules-unit         Print the generated local-rules systemd unit
   help                           Show this help text
 
+Options:
+  -e, --advertise-exit-node      Append --advertise-exit-node to tailscale up
+  -w, --enable-wireguard         Bring up the WireGuard interface before tailscale up
+  -h, --help                     Show this help text
+
 Default behavior:
   When no command is provided, install-local-rules is used by default.
 
@@ -55,6 +61,8 @@ Environment overrides:
   ADVERTISED_ROUTES=10.0.0.0/23,10.2.0.0/16
   EXTRA_TS_ARGS="--snat-subnet-routes=false"
   TS_ACCEPT_ROUTES=true
+  ENABLE_EXIT_NODE_ADVERTISEMENT=false
+  ENABLE_WIREGUARD_INTERFACE=false
   SYSTEMD_UNIT_NAME=tailscale-subnet-router.service
   RULE_PRIORITY=2500
   RULE_TABLE=main
@@ -67,6 +75,34 @@ Environment overrides:
 EOF
 }
 
+parse_args() {
+  COMMAND="install-local-rules"
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    start-subnet-router|install-systemd-service|remove-systemd-service|print-systemd-unit|apply-local-rules|remove-local-rules|install-local-rules|remove-local-rules-persistence|detect-local-rules-backend|print-local-rules-unit|help)
+      COMMAND="$1"
+      ;;
+    -e|--advertise-exit-node)
+      ENABLE_EXIT_NODE_ADVERTISEMENT=true
+      ;;
+    -w|--enable-wireguard)
+      ENABLE_WIREGUARD_INTERFACE=true
+      ;;
+    -h|--help)
+      COMMAND="help"
+      ;;
+    *)
+      echo "Error: Unknown argument: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+    esac
+
+    shift
+  done
+}
+
 require_linux_tools() {
   command -v ip >/dev/null 2>&1 || {
     echo "Error: ip command not found. Install iproute2 and try again." >&2
@@ -75,6 +111,13 @@ require_linux_tools() {
 
   command -v tailscale >/dev/null 2>&1 || {
     echo "Error: tailscale command not found." >&2
+    exit 1
+  }
+}
+
+require_wireguard_tools() {
+  command -v wg-quick >/dev/null 2>&1 || {
+    echo "Error: wg-quick command not found." >&2
     exit 1
   }
 }
@@ -463,6 +506,8 @@ write_subnet_router_environment_file() {
     printf 'ADVERTISED_ROUTES=%s\n' "$ADVERTISED_ROUTES"
     printf 'EXTRA_TS_ARGS=%s\n' "$EXTRA_TS_ARGS"
     printf 'TS_ACCEPT_ROUTES=%s\n' "$TS_ACCEPT_ROUTES"
+    printf 'ENABLE_EXIT_NODE_ADVERTISEMENT=%s\n' "$ENABLE_EXIT_NODE_ADVERTISEMENT"
+    printf 'ENABLE_WIREGUARD_INTERFACE=%s\n' "$ENABLE_WIREGUARD_INTERFACE"
     printf 'RULE_PRIORITY=%s\n' "$RULE_PRIORITY"
     printf 'RULE_TABLE=%s\n' "$RULE_TABLE"
     printf 'TAILNET_RULE_PRIORITY=%s\n' "$TAILNET_RULE_PRIORITY"
@@ -525,6 +570,10 @@ build_tailscale_up_args() {
   if [ "$TS_ACCEPT_ROUTES" = "true" ]; then
     TS_UP_ARGS+=("--accept-routes")
   fi
+
+  if [ "$ENABLE_EXIT_NODE_ADVERTISEMENT" = "true" ]; then
+    TS_UP_ARGS+=("--advertise-exit-node")
+  fi
 }
 
 maybe_apply_local_rules() {
@@ -557,15 +606,12 @@ remove_systemd_service() {
   fi
 }
 
-start_wg0_and_ts_exitnode() {
-  reset_pia_wg_interface
-  maybe_apply_local_rules
-  build_tailscale_up_args
-  print_command_action "Starting" "tailscale up ${TS_UP_ARGS[*]} --advertise-exit-node"
-  sudo tailscale up "${TS_UP_ARGS[@]}" --advertise-exit-node
-}
-
 start_ts_subnet_router() {
+  if [ "$ENABLE_WIREGUARD_INTERFACE" = "true" ]; then
+    require_wireguard_tools
+    reset_pia_wg_interface
+  fi
+
   maybe_apply_local_rules
   build_tailscale_up_args
   print_command_action "Starting" "tailscale up ${TS_UP_ARGS[*]}"
@@ -573,14 +619,11 @@ start_ts_subnet_router() {
 }
 
 main() {
-  local command="${1:-install-local-rules}"
+  parse_args "$@"
 
-  case "$command" in
+  case "$COMMAND" in
   start-subnet-router)
     start_ts_subnet_router
-    ;;
-  start-exit-node)
-    start_wg0_and_ts_exitnode
     ;;
   install-systemd-service)
     install_systemd_service
